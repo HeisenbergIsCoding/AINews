@@ -419,19 +419,47 @@ async def fetch_articles(
             summary_en
         FROM articles
         {where_clause}
-        ORDER BY published DESC
     """
-    
-    params: tuple[Any, ...] = ()
-    if limit is not None:
-        query += " LIMIT ?"
-        params = (limit,)
 
     async with aiosqlite.connect(DB_FILE) as db:
         db.row_factory = aiosqlite.Row
-        async with db.execute(query, params) as cursor:
+        async with db.execute(query) as cursor:
             rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+            articles = [dict(row) for row in rows]
+            
+            # 在 Python 中進行排序，確保正確處理時間格式
+            def parse_published_time(published_str):
+                if not published_str:
+                    return 0
+                try:
+                    from datetime import datetime
+                    import time
+                    
+                    # 嘗試解析 RFC 2822 格式
+                    if ',' in published_str:
+                        parsed_time = time.strptime(published_str.replace(' GMT', ' +0000').replace(' UTC', ' +0000'), '%a, %d %b %Y %H:%M:%S %z')
+                        return time.mktime(parsed_time)
+                    
+                    # 嘗試解析 ISO 格式
+                    if 'T' in published_str:
+                        dt = datetime.fromisoformat(published_str.replace('Z', '+00:00'))
+                        return dt.timestamp()
+                    
+                    # 嘗試直接解析
+                    dt = datetime.fromisoformat(published_str)
+                    return dt.timestamp()
+                    
+                except:
+                    return 0
+            
+            # 按發布時間降序排序（最新的在前）
+            articles.sort(key=lambda x: parse_published_time(x.get('published', '')), reverse=True)
+            
+            # 應用 limit
+            if limit is not None:
+                articles = articles[:limit]
+                
+            return articles
 
 
 async def fetch_articles_for_translation(

@@ -12,6 +12,51 @@ function MainContent() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const { t, language } = useLanguage();
 
+  // 格式化發布時間，顯示原始時間而不進行時區轉換
+  const formatPublishedTime = (publishedStr: string) => {
+    if (!publishedStr) return '';
+    
+    try {
+      // 如果是 RFC 2822 格式 (如: "Wed, 11 Jun 2025 21:03:17 +0000")
+      if (publishedStr.match(/^[A-Za-z]{3}, \d{1,2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2}/)) {
+        // 解析 RFC 2822 格式並格式化為易讀格式
+        const date = new Date(publishedStr);
+        // 使用 UTC 方法來避免時區轉換
+        const year = date.getUTCFullYear();
+        const month = date.getUTCMonth() + 1;
+        const day = date.getUTCDate();
+        const hours = date.getUTCHours();
+        const minutes = date.getUTCMinutes();
+        const seconds = date.getUTCSeconds();
+        
+        // 格式化為 YYYY/M/D HH:MM:SS UTC 格式
+        const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        return `${year}/${month}/${day} ${formattedTime} UTC`;
+      }
+      
+      // 如果是其他格式，嘗試直接解析
+      const date = new Date(publishedStr);
+      if (!isNaN(date.getTime())) {
+        // 使用 UTC 時間顯示
+        const year = date.getUTCFullYear();
+        const month = date.getUTCMonth() + 1;
+        const day = date.getUTCDate();
+        const hours = date.getUTCHours();
+        const minutes = date.getUTCMinutes();
+        const seconds = date.getUTCSeconds();
+        
+        const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        return `${year}/${month}/${day} ${formattedTime} UTC`;
+      }
+      
+      // 如果無法解析，返回原始字串
+      return publishedStr;
+    } catch (error) {
+      // 解析失敗時返回原始字串
+      return publishedStr;
+    }
+  };
+
   // 根據當前語系選擇正確的標題和內容
   const getLocalizedContent = (article: Article) => {
     let title: string;
@@ -202,7 +247,7 @@ function MainContent() {
                   color: "var(--text-secondary, #4a5568)",
                   fontSize: "0.875rem"
                 }}>
-                  {new Date(article.published).toLocaleString()}
+                  {formatPublishedTime(article.published)}
                 </small>
                 <p style={{
                   margin: "0.75rem 0 0",
