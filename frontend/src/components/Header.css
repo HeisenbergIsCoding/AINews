@@ -1,0 +1,174 @@
+/* Header 樣式 */
+.header {
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  transition: all 0.3s ease;
+}
+
+.header-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.header-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.control-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  background: var(--button-bg);
+  color: var(--text-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 60px;
+  justify-content: center;
+}
+
+.control-button:hover {
+  background: var(--button-hover-bg);
+  border-color: var(--button-hover-border);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.control-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.button-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.button-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .header-container {
+    padding: 0.75rem 1rem;
+  }
+  
+  .header-title {
+    font-size: 1.5rem;
+  }
+  
+  .control-button {
+    padding: 0.4rem 0.6rem;
+    min-width: 50px;
+  }
+  
+  .button-text {
+    display: none;
+  }
+  
+  .button-icon {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-container {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .header-title {
+    font-size: 1.25rem;
+  }
+  
+  .header-controls {
+    gap: 0.5rem;
+  }
+  
+  .control-button {
+    padding: 0.35rem 0.5rem;
+    min-width: 40px;
+  }
+}
+
+/* 淺色主題變數 */
+:root {
+  --header-bg: #ffffff;
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --border-color: #e2e8f0;
+  --button-bg: #f7fafc;
+  --button-hover-bg: #edf2f7;
+  --button-hover-border: #cbd5e0;
+}
+
+/* 深色主題變數 */
+[data-theme="dark"] {
+  --header-bg: #1a202c;
+  --text-primary: #f7fafc;
+  --text-secondary: #a0aec0;
+  --border-color: #2d3748;
+  --button-bg: #2d3748;
+  --button-hover-bg: #4a5568;
+  --button-hover-border: #718096;
+}
+
+/* 深色主題下的 body 樣式 */
+[data-theme="dark"] body {
+  background: #1a202c;
+  color: #f7fafc;
+}
+
+/* 深色主題下的其他元素 */
+[data-theme="dark"] main {
+  background: #1a202c;
+  color: #f7fafc;
+}
+
+[data-theme="dark"] button:not(.control-button) {
+  background: #4299e1;
+  border-color: #4299e1;
+}
+
+[data-theme="dark"] button:not(.control-button):hover {
+  background: #3182ce;
+  border-color: #3182ce;
+}
+
+[data-theme="dark"] a {
+  color: #63b3ed;
+}
+
+[data-theme="dark"] a:hover {
+  color: #90cdf4;
+}
+
+/* 平滑過渡效果 */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

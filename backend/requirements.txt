@@ -1,0 +1,7 @@
+feedparser
+fastapi
+uvicorn
+aiosqlite
+python-dotenv
+openai
+apscheduler
