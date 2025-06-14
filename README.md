@@ -97,7 +97,6 @@ chmod +x deploy.sh
 ### 核心功能
 - `GET /api/articles` - 獲取文章列表
 - `POST /api/refresh` - 手動刷新新聞
-- `POST /api/translate/{article_url}` - 翻譯特定文章
 - `POST /api/batch-translate` - 批量翻譯文章
 - `GET /api/health` - 系統健康檢查
 

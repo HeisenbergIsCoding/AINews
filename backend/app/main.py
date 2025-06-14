@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import os
-import time
 from typing import Any, Dict, Optional
-from collections import defaultdict
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import fetch_articles, init_db, get_translation_stats, ensure_url_uniqueness
@@ -15,29 +13,6 @@ from .scheduler import get_scheduler, start_scheduler, stop_scheduler
 
 # 載入環境變數
 load_dotenv()
-
-# IP 速率限制追蹤
-translation_requests = defaultdict(list)  # IP -> [timestamp, ...]
-TRANSLATION_RATE_LIMIT = 5  # 每小時最多5次翻譯請求
-RATE_LIMIT_WINDOW = 3600  # 1小時（秒）
-
-def check_rate_limit(client_ip: str) -> bool:
-    """檢查 IP 是否超過速率限制"""
-    current_time = time.time()
-    
-    # 清理過期的請求記錄
-    translation_requests[client_ip] = [
-        timestamp for timestamp in translation_requests[client_ip]
-        if current_time - timestamp < RATE_LIMIT_WINDOW
-    ]
-    
-    # 檢查是否超過限制
-    if len(translation_requests[client_ip]) >= TRANSLATION_RATE_LIMIT:
-        return False
-    
-    # 記錄新的請求
-    translation_requests[client_ip].append(current_time)
-    return True
 
 app = FastAPI(
     title="AI News Aggregator",
@@ -186,167 +161,11 @@ async def refresh() -> Dict[str, Any]:
     return {"detail": "Refresh complete (with translation)", **result}
 
 
-@app.post("/api/translate/{article_url:path}")
-async def translate_article(article_url: str, request: Request) -> Dict[str, Any]:
-    """
-    Manually trigger translation for a specific article.
-    新流程：從資料庫提取原始資料 → 檢查是否已翻譯 → OpenAI翻譯 → 更新回資料庫
-    
-    安全改進：
-    - 檢查文章是否已經翻譯完成
-    - 檢查最近翻譯記錄，防止頻繁重複翻譯
-    - 記錄翻譯請求以供監控
-
-    Args:
-        article_url: The URL of the article to translate.
-
-    Returns:
-        JSON payload with translation status.
-    """
-    try:
-        # 檢查 IP 速率限制
-        client_ip = request.client.host if request.client else "unknown"
-        if not check_rate_limit(client_ip):
-            raise HTTPException(
-                status_code=429,
-                detail=f"Rate limit exceeded. Maximum {TRANSLATION_RATE_LIMIT} translation requests per hour per IP."
-            )
-        
-        from .translation_service import get_translation_service
-        from .db import fetch_articles, update_article_translation, get_translation_logs
-        from datetime import datetime, timedelta
-        
-        # 從資料庫獲取文章原始資料
-        articles = await fetch_articles(language="original")
-        article = next((a for a in articles if a['link'] == article_url), None)
-        
-        if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
-        
-        # 檢查文章是否已經完全翻譯
-        has_zh_tw = article.get('title_zh_tw') is not None
-        has_zh_cn = article.get('title_zh_cn') is not None
-        has_en = article.get('title_en') is not None
-        
-        if has_zh_tw and has_zh_cn and has_en:
-            return {
-                "detail": "Article already fully translated",
-                "article_url": article_url,
-                "status": "already_translated",
-                "translations_available": ["zh_tw", "zh_cn", "en"]
-            }
-        
-        # 檢查最近是否有翻譯記錄（防止頻繁重複翻譯）
-        # 使用 SQLite 的 datetime 函數直接在資料庫層面過濾
-        one_hour_ago = (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
-        recent_logs = await get_translation_logs(
-            article_link=article_url,
-            since=one_hour_ago,
-            limit=5
-        )
-        
-        # 檢查是否有最近的成功翻譯記錄
-        recent_successful_translations = [
-            log for log in recent_logs
-            if log.get('success')
-        ]
-        
-        if recent_successful_translations:
-            return {
-                "detail": "Article was recently translated, please wait before retrying",
-                "article_url": article_url,
-                "status": "rate_limited",
-                "retry_after": "1 hour",
-                "last_translation": recent_successful_translations[0].get('created_at'),
-                "recent_translations_count": len(recent_successful_translations)
-            }
-        
-        # 使用翻譯服務翻譯原始內容
-        service = get_translation_service()
-        translation_result = await service.translate_with_auto_detection(
-            article['original_title'],
-            article['original_summary'] or ""
-        )
-        
-        if translation_result.get('translation_status') != 'completed':
-            raise HTTPException(status_code=500, detail="Translation failed")
-        
-        # 更新資料庫中的各語言翻譯（只更新缺失的翻譯）
-        success_count = 0
-        total_updates = 0
-        updated_languages = []
-        
-        # 更新繁體中文翻譯（如果尚未翻譯）
-        if not has_zh_tw and translation_result.get('title_zh_tw'):
-            total_updates += 1
-            success = await update_article_translation(
-                article_link=article_url,
-                target_language="zh_tw",
-                title=translation_result.get('title_zh_tw'),
-                summary=translation_result.get('content_zh_tw'),
-                translation_service="openai",
-                success=True
-            )
-            if success:
-                success_count += 1
-                updated_languages.append("zh_tw")
-        
-        # 更新簡體中文翻譯（如果尚未翻譯）
-        if not has_zh_cn and translation_result.get('title_zh_cn'):
-            total_updates += 1
-            success = await update_article_translation(
-                article_link=article_url,
-                target_language="zh_cn",
-                title=translation_result.get('title_zh_cn'),
-                summary=translation_result.get('content_zh_cn'),
-                translation_service="openai",
-                success=True
-            )
-            if success:
-                success_count += 1
-                updated_languages.append("zh_cn")
-        
-        # 更新英文翻譯（如果尚未翻譯）
-        if not has_en and translation_result.get('title_en'):
-            total_updates += 1
-            success = await update_article_translation(
-                article_link=article_url,
-                target_language="en",
-                title=translation_result.get('title_en'),
-                summary=translation_result.get('content_en'),
-                translation_service="openai",
-                success=True
-            )
-            if success:
-                success_count += 1
-                updated_languages.append("en")
-        
-        if success_count == 0:
-            return {
-                "detail": "No new translations needed",
-                "article_url": article_url,
-                "status": "no_updates_needed",
-                "existing_translations": [
-                    lang for lang, exists in [("zh_tw", has_zh_tw), ("zh_cn", has_zh_cn), ("en", has_en)]
-                    if exists
-                ]
-            }
-        
-        return {
-            "detail": "Translation complete",
-            "article_url": article_url,
-            "status": "success",
-            "original_language": translation_result.get('original_language'),
-            "translations_updated": success_count,
-            "updated_languages": updated_languages,
-            "total_translations_attempted": total_updates
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
+# 移除了手動翻譯特定文章的端點以防止濫用
+# 翻譯功能現在只能通過以下方式觸發：
+# 1. 自動排程翻譯（每10分鐘）
+# 2. 手動刷新並翻譯 (/api/refresh)
+# 3. 批次翻譯未翻譯文章 (/api/batch-translate)
 
 @app.post("/api/refresh-fast")
 async def refresh_fast() -> Dict[str, Any]:
@@ -541,78 +360,4 @@ async def toggle_translation(enabled: bool = Query(...)) -> Dict[str, str]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.get("/api/translation-monitoring")
-async def get_translation_monitoring() -> Dict[str, Any]:
-    """
-    獲取翻譯請求監控資訊
-    
-    Returns:
-        翻譯請求統計和速率限制狀態
-    """
-    try:
-        from .db import get_translation_logs
-        
-        current_time = time.time()
-        
-        # 清理過期的速率限制記錄
-        active_ips = {}
-        for ip, timestamps in translation_requests.items():
-            active_timestamps = [
-                ts for ts in timestamps
-                if current_time - ts < RATE_LIMIT_WINDOW
-            ]
-            if active_timestamps:
-                active_ips[ip] = {
-                    "requests_count": len(active_timestamps),
-                    "remaining_requests": max(0, TRANSLATION_RATE_LIMIT - len(active_timestamps)),
-                    "oldest_request": min(active_timestamps),
-                    "newest_request": max(active_timestamps)
-                }
-        
-        # 獲取最近的翻譯日誌
-        recent_logs = await get_translation_logs(limit=50)
-        
-        # 統計成功/失敗的翻譯
-        successful_translations = sum(1 for log in recent_logs if log.get('success'))
-        failed_translations = len(recent_logs) - successful_translations
-        
-        return {
-            "rate_limit_config": {
-                "max_requests_per_hour": TRANSLATION_RATE_LIMIT,
-                "window_seconds": RATE_LIMIT_WINDOW
-            },
-            "active_ips": active_ips,
-            "recent_translation_stats": {
-                "total_recent_logs": len(recent_logs),
-                "successful_translations": successful_translations,
-                "failed_translations": failed_translations,
-                "success_rate": round(successful_translations / len(recent_logs) * 100, 2) if recent_logs else 0
-            },
-            "system_status": {
-                "timestamp": current_time,
-                "active_rate_limited_ips": len(active_ips)
-            }
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@app.post("/api/admin/reset-rate-limits")
-async def reset_rate_limits() -> Dict[str, str]:
-    """
-    重置所有 IP 的速率限制（管理員功能）
-    
-    Returns:
-        操作結果
-    """
-    try:
-        global translation_requests
-        cleared_ips = len(translation_requests)
-        translation_requests.clear()
-        
-        return {
-            "detail": f"已重置 {cleared_ips} 個 IP 的速率限制記錄",
-            "cleared_ips": cleared_ips
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+# 移除了監控和速率限制相關端點，因為已經移除了主要的安全風險端點
