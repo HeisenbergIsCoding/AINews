@@ -154,7 +154,7 @@ docker-compose restart backend
 
 **前端程式碼修改**（[`App.tsx`](frontend/src/App.tsx:1)、CSS 等）：
 ```bash
-docker-compose up -d --build frontend
+docker-compose up -d --build --no-deps frontend
 ```
 
 **依賴檔案修改**：
