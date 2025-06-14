@@ -275,14 +275,3 @@ curl http://localhost/api/articles | jq '.total'
 3. 提交變更 (`git commit -m 'Add some AmazingFeature'`)
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 開啟 Pull Request
-
-## 📄 授權條款
-
-本專案採用 MIT 授權條款 - 詳見 [LICENSE](LICENSE) 檔案
-
-## 📞 支援與聯絡
-
-如有問題或建議，請透過以下方式聯絡：
-- 建立 [Issue](../../issues)
-- 發送 Pull Request
-- 查看 [API 文檔](http://localhost/api/docs)
