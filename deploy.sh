@@ -45,12 +45,35 @@ if [ ! -f "backend/.env" ]; then
     echo -e "${YELLOW}正在建立環境變數檔案...${NC}"
     if [ -f "backend/.env.example" ]; then
         cp backend/.env.example backend/.env
-        echo -e "${YELLOW}請編輯 backend/.env 檔案設置您的 API 金鑰${NC}"
+        echo -e "${YELLOW}請編輯 backend/.env 檔案設置您的 OpenAI API 金鑰${NC}"
+        echo -e "${YELLOW}您需要將 'your_openai_api_key_here' 替換為您的實際 API 金鑰${NC}"
         read -p "按 Enter 繼續編輯環境變數檔案..."
         nano backend/.env
+        
+        # 檢查是否已設置 API 金鑰
+        if grep -q "your_openai_api_key_here" backend/.env; then
+            echo -e "${RED}警告: 您尚未設置 OpenAI API 金鑰！${NC}"
+            echo -e "${RED}請確保已將 'your_openai_api_key_here' 替換為您的實際 API 金鑰${NC}"
+            read -p "是否要重新編輯？(y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                nano backend/.env
+            fi
+        fi
     else
         echo -e "${RED}錯誤: 找不到 backend/.env.example 檔案${NC}"
         exit 1
+    fi
+else
+    echo -e "${GREEN}找到現有的 .env 檔案${NC}"
+    # 檢查現有檔案是否包含預設值
+    if grep -q "your_openai_api_key_here" backend/.env; then
+        echo -e "${YELLOW}檢測到 .env 檔案包含預設值，請更新您的 API 金鑰${NC}"
+        read -p "是否要編輯 .env 檔案？(y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            nano backend/.env
+        fi
     fi
 fi
 

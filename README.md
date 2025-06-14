@@ -42,6 +42,7 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env
 # 編輯 .env 檔案，設置 OPENAI_API_KEY
+# ⚠️ 注意：.env 檔案包含敏感資訊，絕不要上傳到 GitHub
 ```
 
 3. 設置前端環境
@@ -62,6 +63,15 @@ chmod +x start_dev.sh
 - 前端: http://localhost:5173
 - 後端 API: http://localhost:8000
 - API 文檔: http://localhost:8000/docs
+
+## 🔒 重要安全提醒
+
+⚠️ **在上傳到 GitHub 之前，請確保：**
+- `.env` 檔案已被 `.gitignore` 忽略
+- 只有 `.env.example` 會被上傳
+- 真實的 API 金鑰絕不會出現在程式碼中
+
+詳細安全指南請參考：[DEPLOYMENT_SECURITY.md](DEPLOYMENT_SECURITY.md)
 
 ## AWS EC2 部署
 
