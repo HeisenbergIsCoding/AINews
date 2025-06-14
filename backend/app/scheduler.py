@@ -29,6 +29,7 @@ class NewsScheduler:
         self.last_fetch_result: Optional[Dict[str, Any]] = None
         self.fetch_enabled = True
         self.translation_enabled = True
+        self._fetch_in_progress = False  # 添加執行狀態標記
         
         # 設置事件監聽器
         self.scheduler.add_listener(self._job_executed, EVENT_JOB_EXECUTED)
@@ -46,13 +47,21 @@ class NewsScheduler:
         """
         自動抓取新聞任務
         新流程：抓取RSS → 即時翻譯 → 儲存完整資料
+        強化執行狀態檢查，防止重複執行
         """
         if not self.fetch_enabled:
             logger.info("新聞抓取已停用，跳過此次執行")
             return
+        
+        # 強化執行狀態檢查
+        if self._fetch_in_progress:
+            logger.warning("上一次抓取任務仍在執行中，跳過此次執行")
+            return
             
         try:
-            logger.info("開始自動抓取新聞（包含即時翻譯）...")
+            self._fetch_in_progress = True
+            start_time = datetime.now()
+            logger.info(f"開始自動抓取新聞（包含即時翻譯）... 開始時間: {start_time}")
             
             # 根據翻譯設定決定是否進行即時翻譯
             if self.translation_enabled:
@@ -63,14 +72,20 @@ class NewsScheduler:
                 from .rss_fetcher import refresh_feeds_fast
                 result = await refresh_feeds_fast()
             
-            self.last_fetch_time = datetime.now()
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            
+            self.last_fetch_time = end_time
             self.last_fetch_result = result
             
-            logger.info(f"新聞抓取完成: {result}")
+            logger.info(f"新聞抓取完成，耗時 {duration:.2f} 秒: {result}")
                 
         except Exception as e:
             logger.error(f"自動抓取新聞失敗: {str(e)}")
             self.last_fetch_result = {"error": str(e)}
+        finally:
+            self._fetch_in_progress = False
+            logger.info("抓取任務執行狀態已重置")
     
     async def _cleanup_job(self):
         """定期清理任務（每小時執行一次）"""
@@ -146,6 +161,7 @@ class NewsScheduler:
             'is_running': self.is_running,
             'fetch_enabled': self.fetch_enabled,
             'translation_enabled': self.translation_enabled,
+            'fetch_in_progress': self._fetch_in_progress,  # 添加執行狀態
             'last_fetch_time': self.last_fetch_time.isoformat() if self.last_fetch_time else None,
             'last_fetch_result': self.last_fetch_result,
             'jobs': jobs
@@ -163,6 +179,10 @@ class NewsScheduler:
     
     async def trigger_fetch_now(self) -> Dict[str, Any]:
         """立即觸發新聞抓取"""
+        if self._fetch_in_progress:
+            logger.warning("抓取任務正在執行中，無法手動觸發")
+            return {"error": "抓取任務正在執行中，請稍後再試"}
+        
         logger.info("手動觸發新聞抓取...")
         await self._fetch_news_job()
         return self.last_fetch_result or {}

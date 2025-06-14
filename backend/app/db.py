@@ -9,6 +9,201 @@ import os
 DB_FILE = os.path.join(os.path.dirname(__file__), "ai_news.db")
 
 
+async def _migrate_published_column(db: aiosqlite.Connection) -> None:
+    """
+    遷移published字段從TEXT類型到DATETIME類型，並標準化現有時間數據為RFC 2822格式
+    """
+    try:
+        # 檢查表是否存在
+        async with db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='articles'"
+        ) as cursor:
+            table_exists = await cursor.fetchone()
+        
+        if not table_exists:
+            return  # 表不存在，無需遷移
+        
+        # 檢查published字段的類型
+        async with db.execute("PRAGMA table_info(articles)") as cursor:
+            columns = await cursor.fetchall()
+            published_column = None
+            for col in columns:
+                if col[1] == 'published':  # col[1] is column name
+                    published_column = col
+                    break
+        
+        if not published_column:
+            return  # published字段不存在
+        
+        # 如果published字段已經是DATETIME類型，檢查是否需要標準化數據
+        if 'DATETIME' in published_column[2].upper():
+            # 檢查是否有非標準格式的時間數據需要更新
+            async with db.execute(
+                "SELECT COUNT(*) FROM articles WHERE published LIKE '%,%' OR published LIKE '%+%'"
+            ) as cursor:
+                non_standard_count = (await cursor.fetchone())[0]
+            
+            if non_standard_count > 0:
+                print(f"發現 {non_standard_count} 條需要標準化的時間記錄，開始更新...")
+                await _standardize_existing_times(db)
+            return
+        
+        print("開始遷移published字段類型從TEXT到DATETIME...")
+        
+        # 創建新表結構
+        await db.execute(
+            """
+            CREATE TABLE articles_new (
+                link TEXT PRIMARY KEY,
+                original_title TEXT NOT NULL,
+                original_summary TEXT,
+                published DATETIME,
+                feed_source TEXT,
+                title_zh_tw TEXT,
+                summary_zh_tw TEXT,
+                title_zh_cn TEXT,
+                summary_zh_cn TEXT,
+                title_en TEXT,
+                summary_en TEXT
+            )
+            """
+        )
+        
+        # 遷移數據並標準化時間格式
+        await _migrate_and_standardize_data(db)
+        
+        # 刪除舊表並重命名新表
+        await db.execute("DROP TABLE articles")
+        await db.execute("ALTER TABLE articles_new RENAME TO articles")
+        
+        print("published字段類型遷移完成")
+        
+    except Exception as e:
+        print(f"遷移過程中發生錯誤: {e}")
+        # 如果遷移失敗，嘗試清理
+        try:
+            await db.execute("DROP TABLE IF EXISTS articles_new")
+        except:
+            pass
+
+
+async def _migrate_and_standardize_data(db: aiosqlite.Connection) -> None:
+    """
+    遷移數據並標準化時間格式
+    """
+    import time
+    from datetime import datetime
+    
+    async with db.execute("SELECT * FROM articles") as cursor:
+        rows = await cursor.fetchall()
+    
+    migrated_count = 0
+    failed_count = 0
+    
+    for row in rows:
+        try:
+            # 解析舊的時間格式並標準化
+            old_published = row[3]  # published字段在第4列 (index 3)
+            standardized_time = _standardize_time_string(old_published)
+            
+            # 插入到新表
+            await db.execute(
+                """
+                INSERT INTO articles_new (
+                    link, original_title, original_summary, published, feed_source,
+                    title_zh_tw, summary_zh_tw, title_zh_cn, summary_zh_cn,
+                    title_en, summary_en
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row[0], row[1], row[2], standardized_time, row[4],
+                    row[5], row[6], row[7], row[8], row[9], row[10]
+                )
+            )
+            migrated_count += 1
+            
+        except Exception as e:
+            print(f"遷移記錄失敗 {row[0]}: {e}")
+            failed_count += 1
+    
+    print(f"遷移完成: {migrated_count} 成功, {failed_count} 失敗")
+
+
+async def _standardize_existing_times(db: aiosqlite.Connection) -> None:
+    """
+    標準化現有數據庫中的時間格式
+    """
+    async with db.execute("SELECT link, published FROM articles WHERE published IS NOT NULL") as cursor:
+        rows = await cursor.fetchall()
+    
+    updated_count = 0
+    for link, old_published in rows:
+        try:
+            standardized_time = _standardize_time_string(old_published)
+            if standardized_time != old_published:
+                await db.execute(
+                    "UPDATE articles SET published = ? WHERE link = ?",
+                    (standardized_time, link)
+                )
+                updated_count += 1
+        except Exception as e:
+            print(f"標準化時間失敗 {link}: {e}")
+    
+    print(f"標準化完成: {updated_count} 條記錄已更新")
+
+
+def _standardize_time_string(time_str: str) -> str:
+    """
+    標準化時間字符串為RFC 2822格式
+    """
+    if not time_str:
+        return ''
+    
+    try:
+        import time as time_module
+        import re
+        from datetime import datetime
+        
+        # 如果已經是RFC 2822格式，進行標準化處理
+        if re.match(r'^[A-Za-z]{3}, \d{1,2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2}', time_str):
+            # 確保時區格式統一
+            if time_str.endswith(' +0000') or time_str.endswith(' GMT') or time_str.endswith(' UTC'):
+                return re.sub(r' (GMT|UTC)$', ' +0000', time_str)
+            elif '+' in time_str or '-' in time_str[-6:]:
+                # 保持原有時區格式
+                return time_str
+            else:
+                # 如果沒有時區信息，添加 +0000
+                return time_str + ' +0000'
+        
+        # 嘗試解析RFC 2822格式並標準化
+        try:
+            parsed_time = time_module.strptime(time_str.replace(' GMT', ' +0000').replace(' UTC', ' +0000'), '%a, %d %b %Y %H:%M:%S %z')
+            dt = datetime(*parsed_time[:6])
+            return dt.strftime('%a, %d %b %Y %H:%M:%S +0000')
+        except ValueError:
+            pass
+        
+        # 嘗試解析ISO 8601格式並轉換為RFC 2822
+        try:
+            if 'T' in time_str:
+                # 處理不同的ISO 8601變體
+                time_part = time_str.split('+')[0].split('Z')[0]
+                if time_part.count('-') > 2:  # 包含時區的情況
+                    time_part = time_part.rsplit('-', 1)[0]
+                dt = datetime.fromisoformat(time_part)
+                return dt.strftime('%a, %d %b %Y %H:%M:%S +0000')
+        except ValueError:
+            pass
+        
+        # 如果都無法解析，返回原始字符串
+        return time_str
+        
+    except Exception:
+        return time_str
+
+
 async def init_db() -> None:
     """
     初始化 SQLite 資料庫並創建精簡的多語言文章表結構
@@ -17,10 +212,13 @@ async def init_db() -> None:
     - 使用 URL (link) 作為主鍵
     - 只保留必要的原始內容和翻譯欄位
     - 支援多語言翻譯（繁體中文、簡體中文、英文）
-    - 移除時間戳、翻譯狀態等複雜欄位
+    - 使用DATETIME類型的published字段以提升排序性能
     - 簡化索引結構
     """
     async with aiosqlite.connect(DB_FILE) as db:
+        # 檢查是否需要遷移現有表結構
+        await _migrate_published_column(db)
+        
         # 創建精簡的文章表
         await db.execute(
             """
@@ -32,8 +230,8 @@ async def init_db() -> None:
                 original_title TEXT NOT NULL,
                 original_summary TEXT,
                 
-                -- RSS 來源資訊
-                published TEXT,
+                -- RSS 來源資訊 (使用DATETIME類型以提升排序性能)
+                published DATETIME,
                 feed_source TEXT,
                 
                 -- 翻譯內容
