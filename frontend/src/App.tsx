@@ -135,9 +135,9 @@ function MainContent() {
   };
 
 
-  // 初始載入
+  // 初始載入 - 跳過 RSS 抓取，只載入現有文章
   useEffect(() => {
-    loadArticles();
+    loadArticles(true); // skipRefresh = true，避免頁面載入時觸發 RSS 抓取
   }, []);
 
   // 自動刷新效果
