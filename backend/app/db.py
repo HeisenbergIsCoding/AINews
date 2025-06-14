@@ -399,7 +399,8 @@ async def get_translation_stats() -> Dict[str, Any]:
 async def get_translation_logs(
     article_link: Optional[str] = None,
     target_language: Optional[str] = None,
-    limit: int = 100
+    limit: int = 100,
+    since: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     獲取翻譯日誌
@@ -408,6 +409,7 @@ async def get_translation_logs(
         article_link: 可選的文章URL過濾
         target_language: 可選的目標語言過濾
         limit: 返回記錄數限制
+        since: 可選的時間過濾（ISO格式字串）
         
     Returns:
         翻譯日誌列表
@@ -423,12 +425,20 @@ async def get_translation_logs(
         conditions.append("target_language = ?")
         params.append(target_language)
     
+    if since:
+        conditions.append("created_at > ?")
+        params.append(since)
+    
     where_clause = ""
     if conditions:
         where_clause = "WHERE " + " AND ".join(conditions)
     
     query = f"""
-        SELECT * FROM translation_logs
+        SELECT
+            id, article_link, target_language, translation_type,
+            original_text, translated_text, translation_service,
+            datetime(created_at) as created_at, success, error_message
+        FROM translation_logs
         {where_clause}
         ORDER BY created_at DESC
         LIMIT ?
