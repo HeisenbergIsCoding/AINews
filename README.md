@@ -1,312 +1,288 @@
 # AI News Aggregator
 
-一個基於 FastAPI 和 React 的 AI 新聞聚合器，支援多語言翻譯和自動排程抓取。
+一個基於 FastAPI 和 React 的智能新聞聚合器，支援多語言翻譯和自動排程抓取。
 
-## 功能特色
+## ✨ 功能特色
 
-- 🔄 自動抓取多個 RSS 新聞來源
-- 🌐 支援多語言翻譯（繁體中文、簡體中文、英文）
-- ⏰ 自動排程任務
-- 🐳 Docker 容器化部署
-- 📱 響應式前端界面
-- 🔒 HTTPS/SSL 支援
+- 🔄 **自動抓取** - 支援多個 RSS 新聞來源的自動抓取
+- 🌐 **智能翻譯** - 使用 OpenAI API 進行多語言翻譯（繁體中文、簡體中文、英文）
+- ⏰ **排程任務** - 自動化新聞抓取和翻譯排程
+- 🐳 **容器化部署** - 完整的 Docker 容器化解決方案
+- 📱 **響應式界面** - 現代化的 React 前端界面
+- 🔒 **HTTPS 支援** - 內建 SSL/TLS 安全連線支援
+- 📊 **監控統計** - 翻譯統計和系統健康檢查
 
-## 技術架構
+## 🏗️ 技術架構
 
-- **後端**: FastAPI + Python 3.11
-- **前端**: React + TypeScript + Vite
-- **資料庫**: SQLite
+### 後端技術棧
+- **框架**: FastAPI (Python 3.11+)
+- **資料庫**: SQLite with aiosqlite
 - **翻譯服務**: OpenAI API
-- **部署**: Docker + Docker Compose
+- **排程器**: APScheduler
+- **RSS 解析**: feedparser
 
-## 本地開發
+### 前端技術棧
+- **框架**: React 18 + TypeScript
+- **建置工具**: Vite 5
+- **網頁伺服器**: Nginx
+
+### 部署技術
+- **容器化**: Docker + Docker Compose
+- **SSL 憑證**: Let's Encrypt (Certbot)
+- **反向代理**: Nginx
+
+## 🚀 快速開始
 
 ### 前置需求
 
-- Python 3.11+
-- Node.js 18+
+- Docker 和 Docker Compose
 - OpenAI API Key
 
-### 快速開始
+### 本地開發
 
-1. 克隆專案
+1. **克隆專案**
 ```bash
 git clone <your-repo-url>
-cd ai-news
+cd ai_news
 ```
 
-2. 設置後端環境
+2. **設置環境變數**
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-# 編輯 .env 檔案，設置 OPENAI_API_KEY
-# ⚠️ 注意：.env 檔案包含敏感資訊，絕不要上傳到 GitHub
+cp backend/.env.example backend/.env
+# 編輯 backend/.env 檔案，設置您的 OPENAI_API_KEY
 ```
 
-3. 設置前端環境
+3. **啟動開發環境**
 ```bash
-cd ../frontend
-npm install
-```
+# 使用 Docker Compose
+docker-compose up -d
 
-4. 啟動開發服務器
-```bash
-# 回到專案根目錄
-cd ..
+# 或使用開發腳本（需要本地 Python 和 Node.js 環境）
 chmod +x start_dev.sh
 ./start_dev.sh
 ```
 
-5. 訪問應用程式
-- 前端: http://localhost:5173
-- 後端 API: http://localhost:8000
-- API 文檔: http://localhost:8000/docs
+4. **訪問應用程式**
+- 前端界面: http://localhost (Docker) 或 http://localhost:5173 (開發模式)
+- 後端 API: http://localhost/api (Docker) 或 http://localhost:8000 (開發模式)
+- API 文檔: http://localhost/api/docs
 
-## 🔒 重要安全提醒
+## 🌐 生產環境部署
 
-⚠️ **在上傳到 GitHub 之前，請確保：**
-- `.env` 檔案已被 `.gitignore` 忽略
-- 只有 `.env.example` 會被上傳
-- 真實的 API 金鑰絕不會出現在程式碼中
+### AWS EC2 一鍵部署
 
-詳細安全指南請參考：[DEPLOYMENT_SECURITY.md](DEPLOYMENT_SECURITY.md)
-
-## AWS EC2 部署
-
-### 步驟 1: 準備 EC2 實例
-
-1. 在 AWS Console 建立 EC2 實例
+1. **準備 EC2 實例**
    - AMI: Ubuntu 22.04 LTS
    - 實例類型: t3.medium 或以上
-   - 安全群組: 開放端口 22 (SSH), 80 (HTTP), 443 (HTTPS)
+   - 安全群組: 開放 22 (SSH), 80 (HTTP), 443 (HTTPS)
 
-2. 連接到 EC2 實例
-```bash
-ssh -i your-key.pem ubuntu@your-ec2-ip
-```
-
-### 步驟 2: 部署應用程式
-
-1. 克隆專案到 EC2
-```bash
-git clone <your-repo-url> ~/ai-news
-cd ~/ai-news
-```
-
-2. 執行一鍵部署腳本
+2. **執行部署腳本**
 ```bash
 chmod +x deploy.sh
 ./deploy.sh
 ```
 
-3. 按照腳本提示設置環境變數
-
-### 步驟 3: 測試部署
-
-部署完成後，您可以通過 EC2 公共 IP 訪問應用程式：
-```
-http://your-ec2-public-ip
-```
-
-### 步驟 4: 配置域名（可選）
-
-1. 在 AWS Route53 建立 A 記錄
-2. 指向您的 EC2 公共 IP
-3. 修改 CORS 設定限制允許的來源
-
-## 🔒 HTTPS/SSL 設定
-
-### 自動設定 HTTPS
-
-我們提供了自動化腳本來設定 HTTPS 支援，使用 Let's Encrypt 免費 SSL 憑證。
-
-#### 生產環境設定
-
-1. 確保您有一個指向伺服器的域名
-2. 執行 SSL 設定腳本：
+### HTTPS/SSL 設定
 
 ```bash
-# 語法: ./setup_ssl.sh <域名> <電子郵件>
+# 設定 SSL 憑證（需要域名）
 ./setup_ssl.sh yourdomain.com admin@yourdomain.com
-```
 
-#### 本地開發環境設定
-
-對於本地開發，可以使用自簽憑證：
-
-```bash
-./setup_ssl.sh localhost admin@localhost.local
-```
-
-### 手動 SSL 憑證更新
-
-SSL 憑證每 90 天需要更新一次。您可以：
-
-1. **手動更新**：
-```bash
+# 更新 SSL 憑證
 ./renew_ssl.sh
 ```
 
-2. **自動更新**（推薦）：
-```bash
-# 添加到 crontab 進行自動更新
-crontab -e
+## 📡 API 端點
 
-# 添加以下行（每天中午 12 點檢查並更新）
-0 12 * * * cd /path/to/your/project && ./renew_ssl.sh >> /var/log/ssl-renewal.log 2>&1
-```
-
-### HTTPS 功能特色
-
-- ✅ 自動 HTTP 到 HTTPS 重定向
-- ✅ 現代 SSL/TLS 安全設定
-- ✅ 安全標頭配置
-- ✅ HTTP/2 支援
-- ✅ 自動憑證更新
-
-### 訪問您的應用程式
-
-設定完成後，您可以通過以下方式訪問：
-
-- 🌐 **HTTP**: http://yourdomain.com （自動重定向到 HTTPS）
-- 🔒 **HTTPS**: https://yourdomain.com
-
-### 故障排除
-
-#### SSL 憑證問題
-
-1. **檢查憑證狀態**：
-```bash
-docker-compose exec frontend openssl x509 -in /etc/letsencrypt/live/yourdomain.com/fullchain.pem -text -noout | grep -A 2 "Validity"
-```
-
-2. **檢查 nginx 配置**：
-```bash
-docker-compose exec frontend nginx -t
-```
-
-3. **重新載入 nginx**：
-```bash
-docker-compose exec frontend nginx -s reload
-```
-
-#### 常見錯誤
-
-- **域名解析問題**：確保域名正確指向您的伺服器 IP
-- **防火牆設定**：確保端口 80 和 443 已開放
-- **Let's Encrypt 限制**：每個域名每週最多 5 次失敗嘗試
-
-## Docker 指令
-
-```bash
-# 啟動服務
-docker-compose up -d
-
-# 查看服務狀態
-docker-compose ps
-
-# 查看日誌
-docker-compose logs -f
-
-# 重啟服務
-docker-compose restart
-
-# 停止服務
-docker-compose down
-
-# 重新建置並啟動
-docker-compose up -d --build
-
-# 清理未使用的資源
-docker system prune -f
-```
-
-## API 端點
-
-### 主要端點
-
+### 核心功能
 - `GET /api/articles` - 獲取文章列表
 - `POST /api/refresh` - 手動刷新新聞
 - `POST /api/translate/{article_url}` - 翻譯特定文章
-- `GET /api/health` - 健康檢查
+- `POST /api/batch-translate` - 批量翻譯文章
+- `GET /api/health` - 系統健康檢查
 
-### 管理端點
-
+### 排程管理
 - `GET /api/scheduler/status` - 獲取排程器狀態
 - `POST /api/scheduler/start` - 啟動排程器
 - `POST /api/scheduler/stop` - 停止排程器
 - `POST /api/scheduler/trigger-fetch` - 立即觸發抓取
 
-## 環境變數
+### 統計與管理
+- `GET /api/translation-stats` - 翻譯統計資訊
+- `POST /api/cleanup-duplicates` - 清理重複文章
 
-在 `backend/.env` 檔案中設置以下變數：
+## 🔧 開發指南
 
-```env
-OPENAI_API_KEY=your_openai_api_key_here
-# 其他可選配置...
+### 專案結構
 ```
-
-## 專案結構
-
-```
-ai-news/
-├── backend/                 # 後端 FastAPI 應用程式
+ai_news/
+├── backend/                    # FastAPI 後端
 │   ├── app/
-│   │   ├── main.py         # 主應用程式
-│   │   ├── db.py           # 資料庫操作
-│   │   ├── rss_fetcher.py  # RSS 抓取
-│   │   └── ...
-│   ├── Dockerfile          # 後端 Docker 配置
-│   └── requirements.txt    # Python 依賴
-├── frontend/               # 前端 React 應用程式
+│   │   ├── main.py            # 主應用程式和 API 路由
+│   │   ├── db.py              # 資料庫操作
+│   │   ├── rss_fetcher.py     # RSS 抓取邏輯
+│   │   ├── translation_service.py  # OpenAI 翻譯服務
+│   │   ├── scheduler.py       # 自動排程器
+│   │   └── feeds.py           # RSS 來源配置
+│   ├── Dockerfile             # 後端容器配置
+│   ├── requirements.txt       # Python 依賴
+│   └── .env.example          # 環境變數範例
+├── frontend/                  # React 前端
 │   ├── src/
-│   │   ├── App.tsx         # 主組件
-│   │   └── ...
-│   ├── Dockerfile          # 前端 Docker 配置
-│   └── package.json        # Node.js 依賴
-├── docker-compose.yml      # Docker Compose 配置
-├── deploy.sh              # 一鍵部署腳本
-└── README.md              # 專案說明
+│   │   ├── App.tsx           # 主應用程式組件
+│   │   ├── api.ts            # API 呼叫邏輯
+│   │   └── components/       # React 組件
+│   ├── Dockerfile            # 前端容器配置
+│   ├── nginx.conf            # Nginx 配置
+│   └── package.json          # Node.js 依賴
+├── docker-compose.yml         # Docker Compose 配置
+├── deploy.sh                 # 生產環境部署腳本
+├── start_dev.sh              # 本地開發啟動腳本
+├── setup_ssl.sh              # SSL 憑證設定腳本
+├── renew_ssl.sh              # SSL 憑證更新腳本
+├── clean_database.sh         # 資料庫清理工具
+└── README.md                 # 專案說明文件
 ```
 
-## 故障排除
+### 開發流程
 
-### 常見問題
+#### 程式碼修改後的重新部署
 
-1. **服務無法啟動**
+**後端程式碼修改**（[`main.py`](backend/app/main.py:1)、[`rss_fetcher.py`](backend/app/rss_fetcher.py:1) 等）：
 ```bash
-# 查看詳細日誌
-docker-compose logs backend
-docker-compose logs frontend
+docker-compose restart backend
 ```
 
-2. **API 請求失敗**
-- 檢查 CORS 設定
-- 確認後端服務正常運行
-- 檢查防火牆設定
-
-3. **翻譯功能不工作**
-- 確認 OpenAI API Key 設置正確
-- 檢查 API 配額和餘額
-
-### 日誌查看
-
+**前端程式碼修改**（[`App.tsx`](frontend/src/App.tsx:1)、CSS 等）：
 ```bash
-# 查看所有服務日誌
+docker-compose up -d --build frontend
+```
+
+**依賴檔案修改**：
+```bash
+# 後端依賴 (requirements.txt)
+docker-compose up -d --build backend
+
+# 前端依賴 (package.json)
+docker-compose up -d --build frontend
+```
+
+#### 常用開發指令
+```bash
+# 查看服務狀態
+docker-compose ps
+
+# 查看即時日誌
 docker-compose logs -f
 
 # 查看特定服務日誌
 docker-compose logs -f backend
 docker-compose logs -f frontend
+
+# 進入容器除錯
+docker-compose exec backend bash
+docker-compose exec frontend sh
+
+# 重新建置所有服務
+docker-compose down
+docker-compose up -d --build
 ```
 
-## 貢獻
+## 🔒 安全性配置
 
-歡迎提交 Issue 和 Pull Request！
+### 環境變數設定
+在 [`backend/.env`](backend/.env.example:1) 檔案中設置：
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+```
 
-## 授權
+### 重要安全提醒
+⚠️ **請確保：**
+- `.env` 檔案已被 `.gitignore` 忽略
+- 只有 `.env.example` 會被上傳到版本控制
+- 真實的 API 金鑰絕不會出現在程式碼中
 
-MIT License
+## 🛠️ 維護工具
+
+### 資料庫管理
+```bash
+# 清理並重置資料庫
+./clean_database.sh
+
+# 手動觸發新聞抓取
+curl -X POST http://localhost/api/refresh
+
+# 查看翻譯統計
+curl http://localhost/api/translation-stats
+```
+
+### SSL 憑證管理
+```bash
+# 檢查憑證狀態
+docker-compose exec frontend openssl x509 -in /etc/letsencrypt/live/yourdomain.com/fullchain.pem -text -noout | grep -A 2 "Validity"
+
+# 手動更新憑證
+./renew_ssl.sh
+
+# 設定自動更新（crontab）
+0 12 * * * cd /path/to/project && ./renew_ssl.sh >> /var/log/ssl-renewal.log 2>&1
+```
+
+## 🐛 故障排除
+
+### 常見問題
+
+1. **服務無法啟動**
+```bash
+docker-compose logs backend
+docker-compose logs frontend
+```
+
+2. **翻譯功能不工作**
+   - 檢查 OpenAI API Key 設置
+   - 確認 API 配額和餘額
+   - 查看後端日誌中的錯誤訊息
+
+3. **SSL 憑證問題**
+   - 確保域名正確指向伺服器 IP
+   - 檢查防火牆設定（端口 80, 443）
+   - 注意 Let's Encrypt 限制（每週最多 5 次失敗嘗試）
+
+### 監控指令
+```bash
+# 系統健康檢查
+curl http://localhost/api/health
+
+# 檢查排程器狀態
+curl http://localhost/api/scheduler/status
+
+# 查看文章數量
+curl http://localhost/api/articles | jq '.total'
+```
+
+## 📈 效能優化
+
+- 使用 SQLite 進行輕量級資料存儲
+- 實施翻譯速率限制避免 API 超額
+- 支援批量翻譯提高效率
+- 自動清理重複文章
+- 健康檢查確保服務穩定性
+
+## 🤝 貢獻指南
+
+1. Fork 專案
+2. 建立功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交變更 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 開啟 Pull Request
+
+## 📄 授權條款
+
+本專案採用 MIT 授權條款 - 詳見 [LICENSE](LICENSE) 檔案
+
+## 📞 支援與聯絡
+
+如有問題或建議，請透過以下方式聯絡：
+- 建立 [Issue](../../issues)
+- 發送 Pull Request
+- 查看 [API 文檔](http://localhost/api/docs)
