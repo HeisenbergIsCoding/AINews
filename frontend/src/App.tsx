@@ -211,17 +211,6 @@ function MainContent() {
                 }}>
                   {content}
                 </p>
-                {/* 顯示原始語言標記（如果有翻譯內容） */}
-                {article.original_language && (
-                  <div style={{
-                    marginTop: "0.5rem",
-                    fontSize: "0.75rem",
-                    color: "var(--text-secondary, #4a5568)",
-                    opacity: 0.7
-                  }}>
-                    {t('originalLanguage')}: {article.original_language}
-                  </div>
-                )}
               </article>
             );
           })}
