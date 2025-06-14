@@ -8,11 +8,14 @@ set -e
 echo "🔒 Enabling HTTPS Configuration"
 echo "==============================="
 
-# Check if SSL certificate exists
+# Check if SSL certificate exists in Docker volume
 DOMAIN=${1:-begineworking.com}
 
-if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-    echo "❌ SSL certificate not found for $DOMAIN"
+echo "🔍 Checking SSL certificate for $DOMAIN..."
+
+# Check if certificate exists in Docker volume
+if ! docker-compose exec -T frontend test -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" 2>/dev/null; then
+    echo "❌ SSL certificate not found for $DOMAIN in Docker container"
     echo "Please run certbot first to obtain SSL certificate"
     exit 1
 fi
