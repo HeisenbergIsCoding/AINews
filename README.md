@@ -9,6 +9,7 @@
 - ⏰ 自動排程任務
 - 🐳 Docker 容器化部署
 - 📱 響應式前端界面
+- 🔒 HTTPS/SSL 支援
 
 ## 技術架構
 
@@ -115,6 +116,88 @@ http://your-ec2-public-ip
 1. 在 AWS Route53 建立 A 記錄
 2. 指向您的 EC2 公共 IP
 3. 修改 CORS 設定限制允許的來源
+
+## 🔒 HTTPS/SSL 設定
+
+### 自動設定 HTTPS
+
+我們提供了自動化腳本來設定 HTTPS 支援，使用 Let's Encrypt 免費 SSL 憑證。
+
+#### 生產環境設定
+
+1. 確保您有一個指向伺服器的域名
+2. 執行 SSL 設定腳本：
+
+```bash
+# 語法: ./setup_ssl.sh <域名> <電子郵件>
+./setup_ssl.sh yourdomain.com admin@yourdomain.com
+```
+
+#### 本地開發環境設定
+
+對於本地開發，可以使用自簽憑證：
+
+```bash
+./setup_ssl.sh localhost admin@localhost.local
+```
+
+### 手動 SSL 憑證更新
+
+SSL 憑證每 90 天需要更新一次。您可以：
+
+1. **手動更新**：
+```bash
+./renew_ssl.sh
+```
+
+2. **自動更新**（推薦）：
+```bash
+# 添加到 crontab 進行自動更新
+crontab -e
+
+# 添加以下行（每天中午 12 點檢查並更新）
+0 12 * * * cd /path/to/your/project && ./renew_ssl.sh >> /var/log/ssl-renewal.log 2>&1
+```
+
+### HTTPS 功能特色
+
+- ✅ 自動 HTTP 到 HTTPS 重定向
+- ✅ 現代 SSL/TLS 安全設定
+- ✅ 安全標頭配置
+- ✅ HTTP/2 支援
+- ✅ 自動憑證更新
+
+### 訪問您的應用程式
+
+設定完成後，您可以通過以下方式訪問：
+
+- 🌐 **HTTP**: http://yourdomain.com （自動重定向到 HTTPS）
+- 🔒 **HTTPS**: https://yourdomain.com
+
+### 故障排除
+
+#### SSL 憑證問題
+
+1. **檢查憑證狀態**：
+```bash
+docker-compose exec frontend openssl x509 -in /etc/letsencrypt/live/yourdomain.com/fullchain.pem -text -noout | grep -A 2 "Validity"
+```
+
+2. **檢查 nginx 配置**：
+```bash
+docker-compose exec frontend nginx -t
+```
+
+3. **重新載入 nginx**：
+```bash
+docker-compose exec frontend nginx -s reload
+```
+
+#### 常見錯誤
+
+- **域名解析問題**：確保域名正確指向您的伺服器 IP
+- **防火牆設定**：確保端口 80 和 443 已開放
+- **Let's Encrypt 限制**：每個域名每週最多 5 次失敗嘗試
 
 ## Docker 指令
 

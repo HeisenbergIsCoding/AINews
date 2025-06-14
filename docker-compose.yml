@@ -23,8 +23,13 @@ services:
     container_name: ai-news-frontend
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - backend
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - web-root:/var/www/certbot
     restart: unless-stopped
     networks:
       - ai-news-network
@@ -35,10 +40,29 @@ services:
       retries: 5
       start_period: 60s
 
+  certbot:
+    image: certbot/certbot
+    container_name: ai-news-certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - web-root:/var/www/certbot
+    depends_on:
+      - frontend
+    command: certonly --webroot --webroot-path=/var/www/certbot --email your-email@example.com --agree-tos --no-eff-email --staging -d your-domain.com
+    networks:
+      - ai-news-network
+
 networks:
   ai-news-network:
     driver: bridge
 
 volumes:
   db_data:
+    driver: local
+  certbot-etc:
+    driver: local
+  certbot-var:
+    driver: local
+  web-root:
     driver: local
