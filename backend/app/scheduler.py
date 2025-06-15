@@ -91,9 +91,10 @@ class NewsScheduler:
         """定期清理任務（每小時執行一次）"""
         try:
             logger.info("開始定期清理任務...")
-            from .db import ensure_url_uniqueness
+            from .db import ensure_url_uniqueness, delete_old_articles
             result = await ensure_url_uniqueness()
-            logger.info(f"清理完成: {result}")
+            deleted_count = await delete_old_articles(7)
+            logger.info(f"清理完成: {result}，刪除7天前新聞數量: {deleted_count}")
         except Exception as e:
             logger.error(f"定期清理失敗: {str(e)}")
     

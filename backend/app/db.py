@@ -285,6 +285,27 @@ async def init_db() -> None:
         
         await db.commit()
 
+async def delete_old_articles(days: int = 7) -> int:
+    """
+    刪除 published 早於指定天數前的新聞
+    Args:
+        days: 保留幾天內的新聞（預設7天）
+    Returns:
+        刪除的文章數量
+    """
+    import aiosqlite
+    from datetime import datetime, timedelta
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff_str = cutoff.strftime('%Y-%m-%d %H:%M:%S')
+    async with aiosqlite.connect(DB_FILE) as db:
+        # SQLite DATETIME 格式比對
+        cursor = await db.execute(
+            "DELETE FROM articles WHERE published IS NOT NULL AND published < ?",
+            (cutoff_str,)
+        )
+        await db.commit()
+        return cursor.rowcount
 
 async def insert_article(
     link: str,
